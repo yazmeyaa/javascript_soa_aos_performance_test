@@ -1,191 +1,64 @@
-# Benchmark: Structure of Arrays (SoA) vs Array of Structures (AoS)
+# SoA vs AoS Benchmark
 
-## Что это такое? (What is this?)
+Minimal benchmark for comparing **Structure of Arrays (SoA)** and **Array of Structures (AoS)** in JavaScript.
 
-Этот проект сравнивает производительность двух классических паттернов расположения данных в памяти:
+## What it measures
 
-**SoA (Structure of Arrays)** - Структура массивов
-- Данные одного типа хранятся в отдельных типизированных массивах
-- Пример: `{x: Float32Array, y: Float32Array, z: Float32Array}`
-- Улучшает кэш-локальность при работе с одним компонентом
-- Типична для ECS (Entity Component System) архитектур
+For each selected collection size, the benchmark runs:
+- `SET` (write values)
+- `GET` (read values)
+- `MOVE` (update x/y/z)
+- `X ONLY` (update x only)
 
-**AoS (Array of Structures)** - Массив структур
-- Каждый объект содержит все свои компоненты (x, y, z)
-- Пример: `Array<{x: number, y: number, z: number}>`
-- Лучше для работы со всеми компонентами объекта одновременно
-- Типична для традиционных объектно-ориентированных подходов
+## Run
 
-## Тесты (Tests)
+- Open `index.html` in a browser for the interactive version.
+- Run `node test_dense.js` for the CLI version.
 
-Проводится 4 типа тестов для каждого размера коллекции:
+## Results on my machine
 
-1. **SET** - Запись данных
-2. **GET** - Чтение данных
-3. **MOVE** - Обновление позиций (x, y, z += velocity)
-4. **X ONLY** - Обновление только одного компонента (x)
+Measured with `node test_dense.js` on this computer, `100` iterations per test.
 
-Каждый тест выполняется **100 раз** для усреднения результата.
+### Small (1,000)
 
----
+| Test | SoA (ms) | AoS (ms) | Winner |
+|---|---:|---:|---|
+| SET | 0.003967 | 0.002969 | AoS 1.34x faster |
+| GET | 0.003815 | 0.002996 | AoS 1.27x faster |
+| MOVE | 0.006241 | 0.004005 | AoS 1.56x faster |
+| X ONLY | 0.003001 | 0.003457 | SoA 1.15x faster |
 
-## 📊 Результаты тестов (Test Results)
+### Medium (100,000)
 
-### Small Collection (1,000 items)
+| Test | SoA (ms) | AoS (ms) | Winner |
+|---|---:|---:|---|
+| SET | 0.069801 | 0.083343 | SoA 1.19x faster |
+| GET | 0.181008 | 0.093315 | AoS 1.94x faster |
+| MOVE | 0.188253 | 0.186347 | AoS 1.01x faster |
+| X ONLY | 0.060974 | 0.145390 | SoA 2.38x faster |
 
-| Операция | SoA (ms) | AoS (ms) | Разница |
-|----------|----------|----------|---------|
-| SET | 0.00348 | 0.00194 | AoS **1.8x быстрее** ⚡ |
-| GET | 0.00318 | 0.00241 | AoS **1.3x быстрее** ⚡ |
-| MOVE | 0.00537 | 0.00339 | AoS **1.6x быстрее** ⚡ |
-| X ONLY | 0.00229 | 0.00224 | ~равно |
+### Large (10,000,000)
 
-### Medium Collection (100,000 items)
+| Test | SoA (ms) | AoS (ms) | Winner |
+|---|---:|---:|---|
+| SET | 6.860520 | 21.772911 | SoA 3.17x faster |
+| GET | 17.627128 | 13.902253 | AoS 1.27x faster |
+| MOVE | 19.346612 | 38.775622 | SoA 2.00x faster |
+| X ONLY | 5.214210 | 36.475630 | SoA 7.00x faster |
 
-| Операция | SoA (ms) | AoS (ms) | Разница |
-|----------|----------|----------|---------|
-| SET | 0.0695 | 0.0834 | SoA **1.2x быстрее** ⚡ |
-| GET | 0.1809 | 0.0909 | SoA **2.0x быстрее** ⚡ |
-| MOVE | 0.1856 | 0.1938 | ~равно |
-| X ONLY | 0.0525 | 0.1402 | SoA **2.7x быстрее** ⚡ |
+## Hardware and runtime environment
 
-### Large Collection (10,000,000 items)
+- OS: `Linux 7.0.10-arch1-1 x86_64 GNU/Linux` (Arch Linux)
+- CPU: `AMD Ryzen 7 7700 8-Core Processor` (8 cores / 16 threads)
+- Cache: `L1d 256 KiB`, `L1i 256 KiB`, `L2 8 MiB`, `L3 32 MiB`
+- RAM at benchmark time: `30 GiB total`, `10 GiB used`, `11 GiB free`, `20 GiB available`
+- Node.js: `v26.2.0`
+- npm: `11.14.1`
 
-| Операция | SoA (ms) | AoS (ms) | Разница |
-|----------|----------|----------|---------|
-| SET | 7.77 | 24.37 | SoA **3.1x быстрее** ⚡⚡ |
-| GET | 17.77 | 14.41 | AoS **1.2x быстрее** ⚡ |
-| MOVE | 20.62 | 41.52 | SoA **2.0x быстрее** ⚡⚡ |
-| X ONLY | 5.30 | 39.15 | SoA **7.4x быстрее** ⚡⚡⚡ |
+## Live demo
 
----
+- [GitHub Pages](https://yazmeyaa.github.io/javascript_soa_aos_performance_test/)
 
-## 🔑 Ключевые выводы (Key Findings)
+## Learning resources
 
-### ✅ SoA показывает преимущество:
-- **При больших объемах данных** (10M+)
-- **При работе с отдельными компонентами** (особенно X ONLY: 7.4x!)
-- **При операциях записи** (SET, MOVE)
-- **Кэш-эффективнее** благодаря линейности данных
-
-### ✅ AoS показывает преимущество:
-- **На небольших коллекциях** (1K-100K)
-- **При чтении всех компонентов сразу** (GET может быть быстрее)
-- **Проще в использовании** и поддержку в традиционном коде
-
-### 📈 Масштабируемость:
-Чем больше данных, тем сильнее преимущество SoA, особенно для операций с одиночными компонентами.
-
----
-
-## 🖥️ Окружение выполнения (Execution Environment)
-
-### Операционная система (Operating System)
-```
-OS: Linux arch 7.0.10-arch1-1 (Arch Linux)
-Architecture: x86_64 GNU/Linux
-Kernel: #1 SMP PREEMPT_DYNAMIC Sat, 23 May 2026 14:21:20 +0000
-```
-
-### Процессор (CPU)
-```
-Model: AMD Ryzen 7 7700 8-Core Processor
-Cores: 8
-Cache Levels: L1, L2, L3 (typical Zen 4 configuration)
-```
-
-### Оперативная память (RAM)
-```
-Total: 30 GB
-Used during test: ~8.8 GB
-Available: ~21 GB
-```
-
-### Node.js и инструменты (Node.js & Tools)
-```
-Node.js: v26.2.0
-npm: 11.14.1
-Engine: V8 JavaScript Engine
-```
-
-### Параметры теста (Test Configuration)
-```
-Итераций на операцию: 100
-Размеры коллекций:
-  - Small: 1,000 элементов
-  - Medium: 100,000 элементов
-  - Large: 10,000,000 элементов
-```
-
----
-
-## 🚀 Как запустить (How to Run)
-
-### Node.js (CLI)
-
-```bash
-cd test_dense
-node test_dense.js
-```
-
-Результаты выведут все три набора тестов с расчетом среднего времени выполнения на итерацию.
-
-### Веб-версия (Web Browser)
-
-Откройте **`index.html`** в браузере для интерактивного тестирования:
-- Выберите размеры коллекций (small, medium, large)
-- Установите количество итераций
-- Нажмите "Run Benchmark"
-- Получите результаты с информацией о вашей системе
-
-**GitHub Pages:** Разместите содержимое на GitHub Pages для доступа через веб:
-```bash
-git add index.html
-git commit -m "Add web benchmark interface"
-git push origin main
-```
-
-Затем ваш бенчмарк будет доступен по адресу: `https://ваш-юзер.github.io/test_dense/`
-
----
-
-## 🌐 Веб-интерфейс (Web Interface)
-
-### Особенности
-- ✨ **Интерактивный** - выбирайте размеры и параметры тестов
-- 📊 **Визуализация** - красивый интерфейс для просмотра результатов
-- 💻 **Информация о системе** - автоматическое определение характеристик браузера
-- 🚀 **Кроссплатформенный** - работает на любом устройстве с современным браузером
-- 📱 **Адаптивный** - оптимизирован для мобильных и десктопных устройств
-
-### Что можно настроить
-1. **Размеры коллекций**: Small (1K), Medium (100K), Large (10M)
-2. **Количество итераций**: от 1 до 1000
-3. **Выбор тестов**: отметьте необходимые размеры коллекций
-
-### Результаты
-Веб-версия выводит:
-- Время выполнения SoA и AoS для каждого теста
-- Соотношение производительности (X раз быстрее/медленнее)
-- Информацию о вашей системе (браузер, ядра CPU, память)
-- Время проведения теста
-
----
-
-## 📁 Структура файлов (File Structure)
-
-```
-test_dense/
-├── test_dense.js      # Node.js версия бенчмарка
-├── index.html         # Веб-версия (для GitHub Pages)
-└── README.md          # Документация
-```
-
-Выбор между SoA и AoS зависит от:
-
-1. **Размер данных**: Большие коллекции → SoA
-2. **Паттерн доступа**: Отдельные компоненты → SoA, все вместе → AoS
-3. **Сложность кода**: Традиционный код → AoS, оптимизированный → SoA
-4. **Целевая платформа**: На мощных ПК с хорошим кэшем разница больше
-
-Для ECS систем и высоконагруженного кода SoA показывает явное преимущество, особенно при масштабировании.
+- [AoS and SoA — Algorithmica](https://en.algorithmica.org/hpc/cpu-cache/aos-soa/)
