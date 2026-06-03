@@ -716,9 +716,17 @@
                             ${Object.entries(testResults).map(([testName, times]) => {
                                 const soATime = times.soA.toFixed(4);
                                 const aoSTime = times.aoS.toFixed(4);
-                                const ratio = Math.max(times.soA, times.aoS) / Math.min(times.soA, times.aoS);
-                                const winner = times.soA < times.aoS ? 'SoA' : 'AoS';
-                                const winnerTime = Math.min(times.soA, times.aoS).toFixed(4);
+                                
+                                // Calculate ratio safely
+                                let ratio = 1;
+                                let winner = '~';
+                                let winnerText = 'Equal';
+                                
+                                if (Math.abs(times.soA - times.aoS) > 0.00001) {
+                                    ratio = Math.max(times.soA, times.aoS) / Math.min(times.soA, times.aoS);
+                                    winner = times.soA < times.aoS ? 'SoA' : 'AoS';
+                                    winnerText = `${winner} ${ratio.toFixed(2)}x faster`;
+                                }
 
                                 return `
                                     <div class="benchmark-card">
@@ -743,7 +751,7 @@
                                         </div>
                                         <div class="benchmark-row" style="border-bottom: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;">
                                             <span class="benchmark-label">Winner</span>
-                                            <span class="winner">${winner} ${ratio.toFixed(1)}x faster</span>
+                                            <span class="winner">${winnerText}</span>
                                         </div>
                                     </div>
                                 `;
@@ -887,7 +895,14 @@
                         for (const testName of testOrder) {
                             const times = this.results[sizeKey][testName];
                             if (times) {
-                                const ratio = times.aoS / times.soA;
+                                let ratio = 1;
+                                // Safe division with threshold
+                                if (times.soA > 0.00001) {
+                                    ratio = Math.min(times.aoS / times.soA, 100); // Cap at 100 to avoid extreme values
+                                } else if (times.aoS < times.soA) {
+                                    ratio = 0.01; // SoA is much faster
+                                }
+                                
                                 labels.push(`${testName}\n${sizeKey.toUpperCase()}`);
                                 soaRatios.push(ratio);
                                 colors.push(colorMap[sizeKey]);
@@ -919,11 +934,13 @@
                                     tooltip: {
                                         callbacks: {
                                             label: function(context) {
-                                                const ratio = context.raw.toFixed(2);
+                                                const ratio = context.raw;
                                                 if (ratio < 1) {
-                                                    return `SoA is ${(1/ratio).toFixed(2)}x faster`;
-                                                } else {
+                                                    return `SoA is ${(1/Math.max(ratio, 0.01)).toFixed(2)}x faster`;
+                                                } else if (ratio > 1) {
                                                     return `AoS is ${ratio.toFixed(2)}x faster`;
+                                                } else {
+                                                    return 'Similar performance';
                                                 }
                                             }
                                         }
