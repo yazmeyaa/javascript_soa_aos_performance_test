@@ -618,14 +618,30 @@
 
             bench(fn) {
                 fn(); // warmup
+                const targetDurationMs = 40;
+                let runs = Math.max(1, this.iterations);
+                let elapsed = 0;
 
-                const start = performance.now();
-                for (let i = 0; i < this.iterations; i++) {
-                    fn();
+                while (true) {
+                    const start = performance.now();
+                    for (let i = 0; i < runs; i++) {
+                        fn();
+                    }
+                    elapsed = performance.now() - start;
+
+                    if (elapsed >= targetDurationMs || runs >= 10_000_000) {
+                        break;
+                    }
+
+                    // Increase attempts quickly to avoid 0.000000ms on very fast operations.
+                    runs = Math.min(runs * 2, 10_000_000);
                 }
-                const end = performance.now();
 
-                return (end - start) / this.iterations;
+                if (!Number.isFinite(elapsed) || elapsed <= 0 || runs <= 0) {
+                    return NaN;
+                }
+
+                return elapsed / runs;
             }
 
             testSoASet(pos, size) {
@@ -792,7 +808,7 @@
                     return `${faster} faster`;
                 }
 
-                return `${faster} ${ratio.toFixed(6)}x faster`;
+                return `${faster} ${ratio.toFixed(2)}x faster`;
             }
 
             displaySystemInfo() {
