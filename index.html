@@ -714,19 +714,9 @@
                         </div>
                         <div class="benchmark-grid">
                             ${Object.entries(testResults).map(([testName, times]) => {
-                                const soATime = times.soA.toFixed(4);
-                                const aoSTime = times.aoS.toFixed(4);
-                                
-                                // Calculate ratio safely
-                                let ratio = 1;
-                                let winner = '~';
-                                let winnerText = 'Equal';
-                                
-                                if (Math.abs(times.soA - times.aoS) > 0.00001) {
-                                    ratio = Math.max(times.soA, times.aoS) / Math.min(times.soA, times.aoS);
-                                    winner = times.soA < times.aoS ? 'SoA' : 'AoS';
-                                    winnerText = `${winner} ${ratio.toFixed(2)}x faster`;
-                                }
+                                const soATime = this.formatTime(times.soA);
+                                const aoSTime = this.formatTime(times.aoS);
+                                const winnerText = this.getWinnerText(times.soA, times.aoS);
 
                                 return `
                                     <div class="benchmark-card">
@@ -761,6 +751,48 @@
 
                     container.innerHTML += html;
                 }
+            }
+
+            formatTime(value) {
+                if (!Number.isFinite(value) || value < 0) {
+                    return 'N/A';
+                }
+                return value.toFixed(4);
+            }
+
+            getWinnerText(soA, aoS) {
+                const EPS = 1e-9;
+
+                if (!Number.isFinite(soA) || !Number.isFinite(aoS) || soA < 0 || aoS < 0) {
+                    return 'No valid data';
+                }
+
+                if (Math.abs(soA - aoS) <= 0.00001) {
+                    return 'Equal';
+                }
+
+                if (soA <= EPS && aoS <= EPS) {
+                    return 'Equal';
+                }
+
+                if (soA <= EPS) {
+                    return 'SoA faster';
+                }
+
+                if (aoS <= EPS) {
+                    return 'AoS faster';
+                }
+
+                const faster = soA < aoS ? 'SoA' : 'AoS';
+                const fasterTime = Math.min(soA, aoS);
+                const slowerTime = Math.max(soA, aoS);
+                const ratio = slowerTime / fasterTime;
+
+                if (!Number.isFinite(ratio) || ratio <= 0) {
+                    return `${faster} faster`;
+                }
+
+                return `${faster} ${ratio.toFixed(2)}x faster`;
             }
 
             displaySystemInfo() {
@@ -799,167 +831,105 @@
                 const chartsContainer = document.getElementById('charts-container');
                 chartsContainer.innerHTML = '';
 
-                // Create individual test charts for each size
-                for (const [sizeKey, testResults] of Object.entries(this.results)) {
-                    const testNames = Object.keys(testResults);
-                    
-                    for (const testName of testNames) {
-                        const times = testResults[testName];
-                        const soATime = times.soA;
-                        const aoSTime = times.aoS;
-
-                        const chartId = `chart-${sizeKey}-${testName}`;
-                        const sizeLabel = { small: '1K', medium: '100K', large: '10M' }[sizeKey];
-                        
-                        const chartHtml = `
-                            <div class="chart-container">
-                                <h4>${testName} - ${sizeLabel} items</h4>
-                                <div class="chart-wrapper">
-                                    <canvas id="${chartId}"></canvas>
-                                </div>
-                            </div>
-                        `;
-                        chartsContainer.innerHTML += chartHtml;
-
-                        setTimeout(() => {
-                            const ctx = document.getElementById(chartId);
-                            if (ctx) {
-                                this.charts[chartId] = new Chart(ctx, {
-                                    type: 'bar',
-                                    data: {
-                                        labels: ['SoA', 'AoS'],
-                                        datasets: [{
-                                            label: 'Time (ms)',
-                                            data: [soATime.toFixed(4), aoSTime.toFixed(4)],
-                                            backgroundColor: ['#667eea', '#764ba2'],
-                                            borderRadius: 6,
-                                            borderSkipped: false
-                                        }]
-                                    },
-                                    options: {
-                                        indexAxis: 'y',
-                                        responsive: true,
-                                        maintainAspectRatio: false,
-                                        plugins: {
-                                            legend: { display: false }
-                                        },
-                                        scales: {
-                                            x: {
-                                                beginAtZero: true,
-                                                grid: { color: 'rgba(0, 0, 0, 0.05)' }
-                                            },
-                                            y: {
-                                                grid: { display: false }
-                                            }
-                                        }
-                                    }
-                                });
-                            }
-                        }, 0);
-                    }
-                }
-
-                // Create comparison chart for all tests
-                this.createComparisonChart();
-            }
-
-            createComparisonChart() {
-                const chartsContainer = document.getElementById('charts-container');
-                const comparisonChartId = 'comparison-chart';
-                
-                const chartHtml = `
-                    <div class="chart-container" style="grid-column: 1 / -1;">
-                        <h4>Performance Ratio (SoA vs AoS) - Lower is Better for AoS</h4>
-                        <div class="chart-wrapper" style="height: 350px;">
-                            <canvas id="${comparisonChartId}"></canvas>
-                        </div>
-                    </div>
-                `;
-                chartsContainer.innerHTML += chartHtml;
-
-                // Prepare comparison data
-                const labels = [];
-                const soaRatios = [];
-                const colors = [];
-
                 const sizeOrder = ['small', 'medium', 'large'];
                 const testOrder = ['SET', 'GET', 'MOVE', 'X ONLY'];
-                const colorMap = {
-                    small: '#667eea',
-                    medium: '#764ba2',
-                    large: '#f093fb'
-                };
 
-                for (const sizeKey of sizeOrder) {
-                    if (this.results[sizeKey]) {
-                        for (const testName of testOrder) {
-                            const times = this.results[sizeKey][testName];
-                            if (times) {
-                                let ratio = 1;
-                                // Safe division with threshold
-                                if (times.soA > 0.00001) {
-                                    ratio = Math.min(times.aoS / times.soA, 100); // Cap at 100 to avoid extreme values
-                                } else if (times.aoS < times.soA) {
-                                    ratio = 0.01; // SoA is much faster
-                                }
-                                
-                                labels.push(`${testName}\n${sizeKey.toUpperCase()}`);
-                                soaRatios.push(ratio);
-                                colors.push(colorMap[sizeKey]);
-                            }
+                for (const testName of testOrder) {
+                    const chartId = `chart-${testName.toLowerCase().replace(/\s+/g, '-')}`;
+                    const chartHtml = `
+                        <div class="chart-container">
+                            <h4>${testName}: Time vs Collection Size</h4>
+                            <div class="chart-wrapper">
+                                <canvas id="${chartId}"></canvas>
+                            </div>
+                        </div>
+                    `;
+                    chartsContainer.innerHTML += chartHtml;
+
+                    const soAData = [];
+                    const aoSData = [];
+
+                    for (const sizeKey of sizeOrder) {
+                        const times = this.results[sizeKey]?.[testName];
+                        if (!times) continue;
+
+                        if (Number.isFinite(times.soA) && times.soA >= 0) {
+                            soAData.push({ x: this.sizes[sizeKey], y: times.soA });
+                        }
+                        if (Number.isFinite(times.aoS) && times.aoS >= 0) {
+                            aoSData.push({ x: this.sizes[sizeKey], y: times.aoS });
                         }
                     }
-                }
 
-                setTimeout(() => {
-                    const ctx = document.getElementById(comparisonChartId);
-                    if (ctx) {
-                        this.charts[comparisonChartId] = new Chart(ctx, {
-                            type: 'bar',
+                    setTimeout(() => {
+                        const ctx = document.getElementById(chartId);
+                        if (!ctx || (soAData.length === 0 && aoSData.length === 0)) {
+                            return;
+                        }
+
+                        this.charts[chartId] = new Chart(ctx, {
+                            type: 'line',
                             data: {
-                                labels: labels,
-                                datasets: [{
-                                    label: 'AoS / SoA Ratio',
-                                    data: soaRatios,
-                                    backgroundColor: colors,
-                                    borderRadius: 6,
-                                    borderSkipped: false
-                                }]
+                                datasets: [
+                                    {
+                                        label: 'SoA',
+                                        data: soAData,
+                                        borderColor: '#667eea',
+                                        backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                                        pointBackgroundColor: '#667eea',
+                                        pointRadius: 4,
+                                        tension: 0.2
+                                    },
+                                    {
+                                        label: 'AoS',
+                                        data: aoSData,
+                                        borderColor: '#764ba2',
+                                        backgroundColor: 'rgba(118, 75, 162, 0.15)',
+                                        pointBackgroundColor: '#764ba2',
+                                        pointRadius: 4,
+                                        tension: 0.2
+                                    }
+                                ]
                             },
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
+                                parsing: false,
                                 plugins: {
-                                    legend: { display: false },
+                                    legend: { display: true },
                                     tooltip: {
                                         callbacks: {
+                                            title: function(context) {
+                                                if (!context.length) return '';
+                                                return `${context[0].parsed.x.toLocaleString()} items`;
+                                            },
                                             label: function(context) {
-                                                const ratio = context.raw;
-                                                if (ratio < 1) {
-                                                    return `SoA is ${(1/Math.max(ratio, 0.01)).toFixed(2)}x faster`;
-                                                } else if (ratio > 1) {
-                                                    return `AoS is ${ratio.toFixed(2)}x faster`;
-                                                } else {
-                                                    return 'Similar performance';
-                                                }
+                                                return `${context.dataset.label}: ${context.parsed.y.toFixed(4)} ms`;
                                             }
                                         }
                                     }
                                 },
                                 scales: {
-                                    y: {
-                                        beginAtZero: true,
-                                        title: { display: true, text: 'Ratio' },
+                                    x: {
+                                        type: 'linear',
+                                        title: { display: true, text: 'Collection size (items)' },
+                                        ticks: {
+                                            callback: function(value) {
+                                                return Number(value).toLocaleString();
+                                            }
+                                        },
                                         grid: { color: 'rgba(0, 0, 0, 0.05)' }
                                     },
-                                    x: {
-                                        grid: { display: false }
+                                    y: {
+                                        beginAtZero: true,
+                                        title: { display: true, text: 'Time (ms)' },
+                                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
                                     }
                                 }
                             }
                         });
-                    }
-                }, 0);
+                    }, 0);
+                }
             }
         }
 
